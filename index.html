@@ -1,1 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consola de Monitoreo CCTV - Modo Nocturno</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+    <header>
+        <h2>👁️ CONSOLA DE MONITOREO - ANALÍTICA EN VIVO</h2>
+        <div id="status" class="status-badge loading">INICIALIZANDO...</div>
+    </header>
+
+    <div class="dashboard">
+        <div class="monitor-video">
+            <video id="webcam" autoplay muted playsinline></video>
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="panel-registro">
+            <h3>LOG DE EVENTOS (SALA DE RESTRICCIÓN)</h3>
+            <div id="caja-eventos" class="caja-eventos"></div>
+        </div>
+    </div>
+
+    <div id="banner-estado" class="banner-estado">Cargando archivos del modelo de reconocimiento...</div>
+
+    <div id="visor-modal" class="modal-zoom" onclick="cerrarVisor()">
+        <button class="modal-close">CERRAR [X]</button>
+        <img id="img-grande" src="" alt="Zoom Evidencia">
+    </div>
+
+    <script src="js/camera.js"></script>
+    <script src="js/detector.js"></script>
+</body>
+</html>
