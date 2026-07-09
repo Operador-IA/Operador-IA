@@ -5,6 +5,7 @@ const ctx = canvas.getContext('2d');
 
 let model = null;
 let registrosPersonas = [];
+let modoInfrarrojoActivo = false; // Estado del filtro nocturno
 
 // Constantes de calibración del sistema
 const TIEMPO_ESPERA_REPETICION = 2 * 60 * 1000; // 2 minutos entre logs del mismo intruso
@@ -26,6 +27,22 @@ async function inicializar() {
     analizarVideo();
 }
 
+// NUEVO: Función para alternar el estado del filtro infrarrojo
+function alternarInfrarrojo() {
+    const boton = document.getElementById('btn-infrarrojo');
+    modoInfrarrojoActivo = !modoInfrarrojoActivo;
+    
+    if (modoInfrarrojoActivo) {
+        video.classList.add('filtro-nocturno');
+        boton.classList.add('activo');
+        boton.innerText = "👁️ INFRARROJO DIGITAL: ACTIVO";
+    } else {
+        video.classList.remove('filtro-nocturno');
+        boton.classList.remove('activo');
+        boton.innerText = "🌙 ACTIVAR FILTRO INFRARROJO";
+    }
+}
+
 // Bucle de inferencia y tracking continuo
 async function analizarVideo() {
     if (!model) return;
@@ -35,7 +52,6 @@ async function analizarVideo() {
     const tiempoActual = Date.now();
 
     predicciones.forEach(objeto => {
-        // Umbral de fiabilidad del 65% para evitar falsos positivos nocturnos
         if (objeto.class === 'person' && objeto.score > 0.65) {
             const [x, y, ancho, alto] = objeto.bbox;
 
@@ -46,15 +62,13 @@ async function analizarVideo() {
 
             let esMismaPersona = false;
 
-            // Evaluar contra el registro de personas activas
             for (let i = 0; i < registrosPersonas.length; i++) {
                 let r = registrosPersonas[i];
                 if (Math.abs(r.x - x) < TOLERANCIA_PIXELES && Math.abs(r.y - y) < TOLERANCIA_PIXELES) {
                     esMismaPersona = true;
-                    r.x = x; // Actualizar coordenadas en tiempo real
+                    r.x = x; 
                     r.y = y;
 
-                    // Re-alertar si se cumple el intervalo de tiempo configurado
                     if (tiempoActual - r.ultimoRegistro > TIEMPO_ESPERA_REPETICION) {
                         r.ultimoRegistro = tiempoActual;
                         registrarEventoInterno(objeto);
@@ -63,7 +77,6 @@ async function analizarVideo() {
                 }
             }
 
-            // Registrar nuevo intruso si no coincide con ninguno anterior
             if (!esMismaPersona) {
                 registrosPersonas.push({ x, y, ultimoRegistro: tiempoActual });
                 registrarEventoInterno(objeto);
@@ -71,21 +84,29 @@ async function analizarVideo() {
         }
     });
 
-    // Limpieza de memoria (Elimina personas ausentes por más de 10 segundos)
     registrosPersonas = registrosPersonas.filter(r => tiempoActual - r.ultimoRegistro < TIEMPO_EXPIRACION_TRACKING);
     
     requestAnimationFrame(analizarVideo);
 }
 
-// Registra la captura en el panel lateral del operador (Totalmente a color)
+// Registra la captura en el panel lateral del operador
 function registrarEventoInterno(objetoIA) {
     const hora = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     
-    // Captura estática del frame del video a color real
+    // Captura estática del frame del video
     const canvasFoto = document.createElement('canvas');
     canvasFoto.width = video.videoWidth;
     canvasFoto.height = video.videoHeight;
-    canvasFoto.getContext('2d').drawImage(video, 0, 0);
+    const ctxFoto = canvasFoto.getContext('2d');
+
+    // NUEVO: Aplicar filtro a la foto de evidencia SOLO si el modo infrarrojo está activo
+    if (modoInfrarrojoActivo) {
+        ctxFoto.filter = 'grayscale(100%) contrast(140%) brightness(110%)';
+    } else {
+        ctxFoto.filter = 'none';
+    }
+    
+    ctxFoto.drawImage(video, 0, 0);
 
     const tarjeta = document.createElement('div');
     tarjeta.className = 'registro-card';
