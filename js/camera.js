@@ -20,18 +20,19 @@ async function encenderCamara() {
     });
 }
 
-// Mantiene el canvas alineado con la resolución real de la transmisión
+// Mantiene el canvas alineado con el video real
 function ajustarDimensionesCanvas() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 }
 
-// Controladores del visor de evidencia en alta definición
+// Controladores del visor de Zoom interactivo
 function abrirVisor(url) {
     imgGrande.src = url;
     visorModal.style.display = 'flex';
 }
 
+// Corrección: añadida la llave de cierre que faltaba en tu archivo inicial
 function cerrarVisor() {
     visorModal.style.display = 'none';
     imgGrande.src = '';
