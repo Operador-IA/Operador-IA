@@ -1,8 +1,7 @@
-
 * { box-sizing: border-box; }
 body {
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: #0f172a;
+    background-color: #090d16; /* Un tono más oscuro y profundo para menor fatiga visual */
     color: #e2e8f0;
     margin: 0;
     padding: 15px;
@@ -21,14 +20,15 @@ header {
     padding-bottom: 10px;
     margin-bottom: 15px;
 }
-h2 { margin: 0; font-size: 1.3rem; color: #38bdf8; letter-spacing: 0.5px; }
+h2 { margin: 0; font-size: 1.1rem; color: #38bdf8; letter-spacing: 0.8px; font-weight: 600; }
 
 .status-badge {
     padding: 6px 12px;
     border-radius: 6px;
     font-weight: bold;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 .loading { background-color: #b45309; color: #fef3c7; }
 .ready { background-color: #1e293b; color: #38bdf8; border: 1px solid #334155; }
@@ -51,70 +51,128 @@ h2 { margin: 0; font-size: 1.3rem; color: #38bdf8; letter-spacing: 0.5px; }
     background-color: #000;
     border-radius: 10px;
     overflow: hidden;
-    border: 2px solid #334155;
+    border: 2px solid #1e293b;
     aspect-ratio: 4/3;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
 }
 video { width: 100%; height: 100%; object-fit: cover; }
 canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 
+/* PANEL DE EVENTOS ESTILO CHAT DE SEGURIDAD */
 .panel-registro {
     flex: 1;
-    background-color: #0b0f19;
-    border: 2px solid #334155;
+    background-color: #070a12;
+    border: 2px solid #1e293b;
     border-radius: 10px;
     padding: 15px;
     display: flex;
     flex-direction: column;
     max-height: 450px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
 }
 .panel-registro h3 { 
     margin-top: 0; 
-    font-size: 1rem; 
-    color: #94a3b8; 
+    font-size: 0.85rem; 
+    color: #64748b; 
     border-bottom: 1px solid #1e293b; 
-    padding-bottom: 8px;
-    letter-spacing: 0.5px;
+    padding-bottom: 10px;
+    letter-spacing: 0.8px;
+    font-weight: 600;
 }
 
+/* Scrollbar táctico y discreto */
 .caja-eventos {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 10px;
     flex: 1;
-    padding-right: 2px;
+    padding-right: 4px;
+}
+.caja-eventos::-webkit-scrollbar {
+    width: 6px;
+}
+.caja-eventos::-webkit-scrollbar-track {
+    background: #070a12;
+}
+.caja-eventos::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 3px;
+}
+.caja-eventos::-webkit-scrollbar-thumb:hover {
+    background: #334155;
 }
 
+/* TARJETA DE AUDITORÍA PROFESIONAL */
 .registro-card {
-    background-color: #1e293b;
-    border-left: 4px solid #f59e0b;
+    background-color: #0f172a;
+    border-left: 4px solid #ef4444; /* Rojo alerta por defecto */
     border-radius: 6px;
-    padding: 10px;
+    padding: 12px;
     display: flex;
-    gap: 12px;
+    gap: 14px;
     align-items: center;
-    animation: entradaCard 0.25s ease-out;
+    border-top: 1px solid #1e293b;
+    border-right: 1px solid #1e293b;
+    border-bottom: 1px solid #1e293b;
+    animation: entradaCard 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* Efecto de atención sutil en el último log registrado */
+.caja-eventos .registro-card:first-child {
+    animation: entradaCard 0.3s cubic-bezier(0.16, 1, 0.3, 1), pulsoAlerta 2s infinite ease-in-out;
+}
+
 .registro-card img { 
-    width: 75px; 
-    height: 75px; 
+    width: 80px; 
+    height: 80px; 
     object-fit: cover; 
-    border-radius: 4px; 
-    border: 1px solid #475569; 
+    border-radius: 6px; 
+    border: 1px solid #334155; 
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: transform 0.2s, border-color 0.2s;
 }
-.registro-card img:hover { transform: scale(1.05); }
+.registro-card img:hover { 
+    transform: scale(1.04); 
+    border-color: #38bdf8;
+}
+
 .registro-info { 
     display: flex; 
     flex-direction: column; 
-    gap: 3px; 
-    font-size: 0.85rem;
-    color: #cbd5e1;
+    gap: 4px; 
+    font-size: 0.8rem;
+    color: #94a3b8;
+    flex: 1;
 }
-.alerta-texto { font-weight: bold; color: #f59e0b; }
-.meta-line { color: #94a3b8; }
-.meta-line span { color: #f8fafc; font-weight: 500; }
+
+.alerta-texto { 
+    font-weight: 700; 
+    color: #f8fafc; 
+    font-size: 0.85rem;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Estructura ordenada de datos del ticket */
+.meta-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 3px 10px;
+    margin-top: 2px;
+}
+.meta-line { 
+    color: #64748b; 
+    font-weight: 500;
+}
+.meta-line span { 
+    color: #cbd5e1; 
+    font-weight: 600;
+    font-family: monospace; /* Formato de datos crudos de sistema */
+}
 
 .banner-estado {
     width: 100%;
@@ -122,18 +180,20 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer
     padding: 12px;
     border-radius: 8px;
     text-align: center;
-    font-size: 0.9rem;
-    background-color: #1e293b;
-    border: 1px solid #334155;
-    margin-top: 10px;
-    color: #94a3b8;
+    font-size: 0.85rem;
+    background-color: #070a12;
+    border: 1px solid #1e293b;
+    margin-top: 15px;
+    color: #64748b;
+    letter-spacing: 0.5px;
 }
 
+/* MODAL DE EVIDENCIA EN ALTA RESOLUCIÓN */
 .modal-zoom {
     display: none;
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(15, 23, 42, 0.95);
+    background-color: rgba(5, 8, 15, 0.98);
     z-index: 2000;
     justify-content: center;
     align-items: center;
@@ -144,19 +204,36 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer
     max-width: 100%;
     max-height: 85vh;
     border-radius: 8px;
-    border: 2px solid #38bdf8;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    border: 1px solid #334155;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
 }
 .modal-close {
     position: absolute;
     top: 20px; right: 20px;
-    background-color: #ef4444;
-    color: white;
-    border: none;
+    background-color: #1e293b;
+    color: #94a3b8;
+    border: 1px solid #334155;
     padding: 8px 14px;
     font-weight: bold;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.modal-close:hover {
+    background-color: #ef4444;
+    color: white;
+    border-color: #ef4444;
 }
 
-@keyframes entradaCard { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+/* ANIMACIONES */
+@keyframes entradaCard { 
+    from { transform: translateY(-8px); opacity: 0; } 
+    to { transform: translateY(0); opacity: 1; } 
+}
+
+@keyframes pulsoAlerta {
+    0% { box-shadow: inset 4px 0 0 #ef4444; background-color: #0f172a; }
+    50% { box-shadow: inset 4px 0 10px #ef4444; background-color: rgba(239, 68, 68, 0.05); }
+    100% { box-shadow: inset 4px 0 0 #ef4444; background-color: #0f172a; }
+}
