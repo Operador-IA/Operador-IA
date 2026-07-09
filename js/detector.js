@@ -2,6 +2,7 @@ const statusBadge = document.getElementById('status');
 const bannerEstado = document.getElementById('banner-estado');
 const cajaEventos = document.getElementById('caja-eventos');
 const ctx = canvas.getContext('2d');
+const videoElement = document.getElementById('webcam'); // CORRECCIÓN: Agregada la referencia al video
 
 let model = null;
 let registrosPersonas = [];
@@ -27,17 +28,17 @@ async function inicializar() {
     analizarVideo();
 }
 
-// NUEVO: Función para alternar el estado del filtro infrarrojo
+// CORRECCIÓN: Lógica corregida para aplicar el filtro y alternar los textos del botón
 function alternarInfrarrojo() {
     const boton = document.getElementById('btn-infrarrojo');
     modoInfrarrojoActivo = !modoInfrarrojoActivo;
     
     if (modoInfrarrojoActivo) {
-        video.classList.add('filtro-nocturno');
+        videoElement.classList.add('filtro-nocturno');
         boton.classList.add('activo');
-        boton.innerText = "👁️ INFRARROJO DIGITAL: ACTIVO";
+        boton.innerText = "❌ DESACTIVAR FILTRO INFRARROJO";
     } else {
-        video.classList.remove('filtro-nocturno');
+        videoElement.classList.remove('filtro-nocturno');
         boton.classList.remove('activo');
         boton.innerText = "🌙 ACTIVAR FILTRO INFRARROJO";
     }
@@ -47,7 +48,7 @@ function alternarInfrarrojo() {
 async function analizarVideo() {
     if (!model) return;
 
-    const predicciones = await model.detect(video);
+    const predicciones = await model.detect(videoElement); // Usar videoElement
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const tiempoActual = Date.now();
 
@@ -95,18 +96,18 @@ function registrarEventoInterno(objetoIA) {
     
     // Captura estática del frame del video
     const canvasFoto = document.createElement('canvas');
-    canvasFoto.width = video.videoWidth;
-    canvasFoto.height = video.videoHeight;
+    canvasFoto.width = videoElement.videoWidth; // Usar videoElement
+    canvasFoto.height = videoElement.videoHeight; // Usar videoElement
     const ctxFoto = canvasFoto.getContext('2d');
 
-    // NUEVO: Aplicar filtro a la foto de evidencia SOLO si el modo infrarrojo está activo
+    // Aplicar filtro a la foto de evidencia SOLO si el modo infrarrojo está activo
     if (modoInfrarrojoActivo) {
         ctxFoto.filter = 'grayscale(100%) contrast(140%) brightness(110%)';
     } else {
         ctxFoto.filter = 'none';
     }
     
-    ctxFoto.drawImage(video, 0, 0);
+    ctxFoto.drawImage(videoElement, 0, 0); // Usar videoElement
 
     const tarjeta = document.createElement('div');
     tarjeta.className = 'registro-card';
