@@ -1,7 +1,7 @@
 * { box-sizing: border-box; }
 body {
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: #090d16; /* Un tono más oscuro y profundo para menor fatiga visual */
+    background-color: #0f172a;
     color: #e2e8f0;
     margin: 0;
     padding: 15px;
@@ -20,15 +20,14 @@ header {
     padding-bottom: 10px;
     margin-bottom: 15px;
 }
-h2 { margin: 0; font-size: 1.1rem; color: #38bdf8; letter-spacing: 0.8px; font-weight: 600; }
+h2 { margin: 0; font-size: 1.3rem; color: #38bdf8; letter-spacing: 0.5px; }
 
 .status-badge {
     padding: 6px 12px;
     border-radius: 6px;
     font-weight: bold;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
 }
 .loading { background-color: #b45309; color: #fef3c7; }
 .ready { background-color: #1e293b; color: #38bdf8; border: 1px solid #334155; }
@@ -51,36 +50,32 @@ h2 { margin: 0; font-size: 1.1rem; color: #38bdf8; letter-spacing: 0.8px; font-w
     background-color: #000;
     border-radius: 10px;
     overflow: hidden;
-    border: 2px solid #1e293b;
+    border: 2px solid #334155;
     aspect-ratio: 4/3;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
 }
 video { width: 100%; height: 100%; object-fit: cover; }
 canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 
-/* PANEL DE EVENTOS ESTILO CHAT DE SEGURIDAD */
 .panel-registro {
     flex: 1;
-    background-color: #070a12;
-    border: 2px solid #1e293b;
+    background-color: #0b0f19;
+    border: 2px solid #334155;
     border-radius: 10px;
     padding: 15px;
     display: flex;
     flex-direction: column;
     max-height: 450px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
 }
 .panel-registro h3 { 
     margin-top: 0; 
-    font-size: 0.85rem; 
-    color: #64748b; 
+    font-size: 1rem; 
+    color: #94a3b8; 
     border-bottom: 1px solid #1e293b; 
-    padding-bottom: 10px;
-    letter-spacing: 0.8px;
-    font-weight: 600;
+    padding-bottom: 8px;
+    letter-spacing: 0.5px;
 }
 
-/* Scrollbar táctico y discreto */
+/* Caja de eventos con Scrollbar oscuro y profesional */
 .caja-eventos {
     overflow-y: auto;
     display: flex;
@@ -93,7 +88,7 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer
     width: 6px;
 }
 .caja-eventos::-webkit-scrollbar-track {
-    background: #070a12;
+    background: #0b0f19;
 }
 .caja-eventos::-webkit-scrollbar-thumb {
     background: #1e293b;
@@ -103,32 +98,26 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer
     background: #334155;
 }
 
-/* TARJETA DE AUDITORÍA PROFESIONAL */
+/* Tarjeta de Alerta Estética Mejorada */
 .registro-card {
-    background-color: #0f172a;
-    border-left: 4px solid #ef4444; /* Rojo alerta por defecto */
+    background-color: #1e293b;
+    border-left: 4px solid #ef4444; /* Rojo de alerta crítica */
     border-radius: 6px;
     padding: 12px;
     display: flex;
     gap: 14px;
     align-items: center;
-    border-top: 1px solid #1e293b;
-    border-right: 1px solid #1e293b;
-    border-bottom: 1px solid #1e293b;
-    animation: entradaCard 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border-top: 1px solid #334155;
+    border-right: 1px solid #334155;
+    border-bottom: 1px solid #334155;
+    animation: entradaCard 0.25s ease-out;
 }
-
-/* Efecto de atención sutil en el último log registrado */
-.caja-eventos .registro-card:first-child {
-    animation: entradaCard 0.3s cubic-bezier(0.16, 1, 0.3, 1), pulsoAlerta 2s infinite ease-in-out;
-}
-
 .registro-card img { 
     width: 80px; 
     height: 80px; 
     object-fit: cover; 
     border-radius: 6px; 
-    border: 1px solid #334155; 
+    border: 1px solid #475569; 
     cursor: pointer;
     transition: transform 0.2s, border-color 0.2s;
 }
@@ -136,43 +125,16 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer
     transform: scale(1.04); 
     border-color: #38bdf8;
 }
-
 .registro-info { 
     display: flex; 
     flex-direction: column; 
     gap: 4px; 
-    font-size: 0.8rem;
-    color: #94a3b8;
-    flex: 1;
-}
-
-.alerta-texto { 
-    font-weight: 700; 
-    color: #f8fafc; 
     font-size: 0.85rem;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 5px;
+    color: #cbd5e1;
 }
-
-/* Estructura ordenada de datos del ticket */
-.meta-grid {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 3px 10px;
-    margin-top: 2px;
-}
-.meta-line { 
-    color: #64748b; 
-    font-weight: 500;
-}
-.meta-line span { 
-    color: #cbd5e1; 
-    font-weight: 600;
-    font-family: monospace; /* Formato de datos crudos de sistema */
-}
+.alerta-texto { font-weight: bold; color: #f8fafc; font-size: 0.9rem; letter-spacing: 0.3px; }
+.meta-line { color: #94a3b8; font-weight: 500; }
+.meta-line span { color: #f8fafc; font-weight: 600; }
 
 .banner-estado {
     width: 100%;
@@ -180,20 +142,18 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer
     padding: 12px;
     border-radius: 8px;
     text-align: center;
-    font-size: 0.85rem;
-    background-color: #070a12;
-    border: 1px solid #1e293b;
-    margin-top: 15px;
-    color: #64748b;
-    letter-spacing: 0.5px;
+    font-size: 0.9rem;
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    margin-top: 10px;
+    color: #94a3b8;
 }
 
-/* MODAL DE EVIDENCIA EN ALTA RESOLUCIÓN */
 .modal-zoom {
     display: none;
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(5, 8, 15, 0.98);
+    background-color: rgba(15, 23, 42, 0.95);
     z-index: 2000;
     justify-content: center;
     align-items: center;
@@ -204,36 +164,19 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer
     max-width: 100%;
     max-height: 85vh;
     border-radius: 8px;
-    border: 1px solid #334155;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+    border: 2px solid #38bdf8;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 .modal-close {
     position: absolute;
     top: 20px; right: 20px;
-    background-color: #1e293b;
-    color: #94a3b8;
-    border: 1px solid #334155;
+    background-color: #ef4444;
+    color: white;
+    border: none;
     padding: 8px 14px;
     font-weight: bold;
     border-radius: 6px;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: background 0.2s, color 0.2s;
-}
-.modal-close:hover {
-    background-color: #ef4444;
-    color: white;
-    border-color: #ef4444;
+    font-size: 0.9rem;
 }
 
-/* ANIMACIONES */
-@keyframes entradaCard { 
-    from { transform: translateY(-8px); opacity: 0; } 
-    to { transform: translateY(0); opacity: 1; } 
-}
-
-@keyframes pulsoAlerta {
-    0% { box-shadow: inset 4px 0 0 #ef4444; background-color: #0f172a; }
-    50% { box-shadow: inset 4px 0 10px #ef4444; background-color: rgba(239, 68, 68, 0.05); }
-    100% { box-shadow: inset 4px 0 0 #ef4444; background-color: #0f172a; }
-}
+@keyframes entradaCard { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
