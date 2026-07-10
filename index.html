@@ -26,9 +26,18 @@
         </div>
 
         <div class="panel-registro">
-            <button id="btn-infrarrojo" onclick="alternarInfrarrojo()" style="width: 100%; padding: 10px; background-color: #1e293b; border: 1px solid #475569; color: #94a3b8; font-weight: bold; font-size: 0.8rem; border-radius: 6px; cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px; margin-bottom: 15px;">
+            <button id="btn-infrarrojo" onclick="alternarInfrarrojo()" style="width: 100%; padding: 10px; background-color: #1e293b; border: 1px solid #475569; color: #94a3b8; font-weight: bold; font-size: 0.8rem; border-radius: 6px; cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px; margin-bottom: 12px;">
                 🌙 ACTIVAR FILTRO INFRARROJO
             </button>
+
+            <div class="controles-silencio" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;">
+                <button id="btn-silenciar-optico" style="width: 100%; padding: 10px; background-color: #22c55e; border: 1px solid rgba(255,255,255,0.1); color: white; font-weight: bold; font-size: 0.8rem; border-radius: 6px; cursor: pointer; transition: background 0.3s;">
+                    🟢 DETECTOR VISUAL ACTIVO
+                </button>
+                <button id="btn-silenciar-acustico" style="width: 100%; padding: 10px; background-color: #f97316; border: 1px solid rgba(255,255,255,0.1); color: white; font-weight: bold; font-size: 0.8rem; border-radius: 6px; cursor: pointer; transition: background 0.3s;">
+                    🟢 DETECTOR ACÚSTICO ACTIVO
+                </button>
+            </div>
 
             <h3>HISTORIAL DE EVENTOS DETECTADOS</h3>
             <div id="caja-eventos" class="caja-eventos"></div>
