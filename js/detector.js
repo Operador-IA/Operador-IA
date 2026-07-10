@@ -26,12 +26,13 @@ let tiempoUltimaAlertaAcustica = 0;
 // Historial dinámico para el detector de transitorios (Impactos rápidos)
 let gravesPrevios = 0;
 
-// ==========================================
-// NUEVAS VARIABLES PARA FILTRADO DE FALSOS POSITIVOS
-// ==========================================
-let historialCajas = {}; // Almacena el estado y movimiento de cada ID de tracking
-const CONTEXTO_FOTOGRAMAS_MINIMO = 8;  // Cuántos frames seguidos debe verse para confirmar que es humano
-const UMBRAL_MOVIMIENTO_CAJA = 2.5;    // Cuánto debe variar la caja (píxeles) para descartar objetos rígidos estáticos (camperas/toallas)
+// =================================================================
+// RECALIBRACIÓN EN TIEMPO REAL ANTI-FALSOS POSITIVOS Y ALTA VELOCIDAD
+// =================================================================
+let historialCajas = {}; 
+const CONTEXTO_FOTOGRAMAS_MINIMO = 3;    // Captura ráfagas rápidas/corredores bajando la espera inicial
+const UMBRAL_MOVIMIENTO_CAJA = 1.8;      // Sensibilidad micrométrica para descartar objetos quietos
+const UMBRAL_DESPLAZAMIENTO_RAPIDO = 25; // Si se desplaza más de 25px por frame, es un intruso rápido (Bypass)
 
 // Constantes de calibración del sistema
 const TIEMPO_ESPERA_REPETICION = 2 * 60 * 1000;  // 2 minutos entre logs del mismo intruso
@@ -253,8 +254,8 @@ async function analizarVideo() {
     let idsVistosEsteFrame = new Set();
 
     predicciones.forEach(objeto => {
-        // Subimos sutilmente el umbral base a 0.70 para mayor solidez
-        if (objeto.class === 'person' && objeto.score > 0.70) {
+        // Mantenemos la confianza base en 0.65 para no perder siluetas reales y lejanas
+        if (objeto.class === 'person' && objeto.score > 0.65) {
             const [x, y, ancho, alto] = objeto.bbox;
 
             let idAsignado = null;
@@ -279,23 +280,31 @@ async function analizarVideo() {
 
             idsVistosEsteFrame.add(idAsignado);
 
-            // 2. INICIALIZAR O ACTUALIZAR EL HISTORIAL DE PERSISTENCIA Y ANÁLISIS SÍSMICO/MOVIMIENTO
+            // 2. INICIALIZAR O ACTUALIZAR EL HISTORIAL DE PERSISTENCIA Y ANÁLISIS DINÁMICO
             if (!historialCajas[idAsignado]) {
                 historialCajas[idAsignado] = {
                     contadorFrames: 1,
                     ultimoX: x,
                     ultimoY: y,
                     acumuladorMovimiento: 0,
-                    alertaConfirmada: false
+                    alertaConfirmada: false,
+                    esIntrusoRapido: false
                 };
             } else {
                 let datosCaja = historialCajas[idAsignado];
                 datosCaja.contadorFrames++;
 
-                // Calcular micro-variaciones matemáticas de la caja delimitadora (Simula respiración/movimiento)
-                let variacionX = Math.abs(datosCaja.ultimoX - x);
-                let variacionY = Math.abs(datosCaja.ultimoY - y);
-                datosCaja.acumuladorMovimiento += (variacionX + variacionY);
+                // Calcular variaciones en frames consecutivos
+                let deltaX = Math.abs(datosCaja.ultimoX - x);
+                let deltaY = Math.abs(datosCaja.ultimoY - y);
+                let movimientoFrame = deltaX + deltaY;
+
+                datosCaja.acumuladorMovimiento += movimientoFrame;
+
+                // FILTRO DE VELOCIDAD: Si el objeto saltó muchos píxeles en un solo cuadro, es un intruso rápido
+                if (movimientoFrame > UMBRAL_DESPLAZAMIENTO_RAPIDO) {
+                    datosCaja.esIntrusoRapido = true;
+                }
 
                 // Actualizar coordenadas previas para el siguiente frame
                 datosCaja.ultimoX = x;
@@ -304,31 +313,27 @@ async function analizarVideo() {
 
             let analisisCaja = historialCajas[idAsignado];
 
-            // 3. VALIDACIÓN CRÍTICA: ¿Es un humano móvil o un objeto estático?
-            // Exigimos que aparezca X frames seguidos Y que tenga micro-movimientos (ruido analógico)
-            if (analisisCaja.contadorFrames >= CONTEXTO_FOTOGRAMAS_MINIMO) {
+            // 3. VALIDACIÓN ELÁSTICA: ¿Es un intruso veloz o superó el filtro de micro-movimiento estático?
+            if (analisisCaja.esIntrusoRapido || 
+               (analisisCaja.contadorFrames >= CONTEXTO_FOTOGRAMAS_MINIMO && analisisCaja.acumuladorMovimiento > UMBRAL_MOVIMIENTO_CAJA)) {
                 
-                // Si está quieto matemáticamente (como una toalla), el acumulador de variaciones será bajísimo
-                if (analisisCaja.acumuladorMovimiento > UMBRAL_MOVIMIENTO_CAJA) {
-                    
-                    // Renderizar recuadro visual solo si pasó los filtros rigurosos
-                    ctx.strokeStyle = "#22c55e"; // Verde clásico de alerta activa
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(x, y, ancho, alto);
+                // Renderizar recuadro verde de alerta activa
+                ctx.strokeStyle = "#22c55e"; 
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x, y, ancho, alto);
 
-                    // Gestión de envío de alertas controlada por tiempo
-                    let r = registrosPersonas[idAsignado];
-                    if (!analisisCaja.alertaConfirmada || (tiempoActual - r.ultimoRegistro > TIEMPO_ESPERA_REPETICION)) {
-                        r.ultimoRegistro = tiempoActual;
-                        analisisCaja.alertaConfirmada = true;
-                        registrarEventoInterno(objeto);
-                    }
-                } else {
-                    // Renderizado secundario (Opcional/Debug): Dibujar cuadro amarillo tenue indicando objeto en análisis
-                    ctx.strokeStyle = "rgba(234, 179, 8, 0.4)";
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(x, y, ancho, alto);
+                // Gestión de envío de alertas controlada por tiempo
+                let r = registrosPersonas[idAsignado];
+                if (!analisisCaja.alertaConfirmada || (tiempoActual - r.ultimoRegistro > TIEMPO_ESPERA_REPETICION)) {
+                    r.ultimoRegistro = tiempoActual;
+                    analisisCaja.alertaConfirmada = true;
+                    registrarEventoInterno(objeto);
                 }
+            } else {
+                // Renderizado preventivo: cuadro muy tenue mientras el cerebro evalúa si se mueve o es una silla
+                ctx.strokeStyle = "rgba(34, 197, 94, 0.15)";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, ancho, alto);
             }
         }
     });
