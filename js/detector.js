@@ -12,15 +12,17 @@ let modoInfrarrojoActivo = false;
 let audioCtx = null;
 let analyser = null;
 let mediaRecorder = null;
-let chunksAudio = [];
-let bufferCircularAudio = []; // Guarda los últimos segundos en memoria
+let bufferCircularAudio = []; // Almacena los fragmentos de audio reales
 let tiempoUltimaAlertaAcustica = 0;
 
+// Historial dinámico para el detector de transitorios (Impactos rápidos)
+let gravesPrevios = 0;
+
 // Constantes de calibración del sistema
-const TIEMPO_ESPERA_REPETICION = 2 * 60 * 1000;  // 2 minutos entre logs del mismo intruso/ruido
+const TIEMPO_ESPERA_REPETICION = 2 * 60 * 1000;  // 2 minutos entre logs del mismo intruso
 const TOLERANCIA_PIXELES = 120;                  // Rango de tracking de movimiento
 const TIEMPO_EXPIRACION_TRACKING = 10 * 1000;    // Tiempo para olvidar tracking visual
-const INTERVALO_ALERTA_AUDIO = 8000;             // Cooldown para no saturar con alertas de ruido
+const INTERVALO_ALERTA_AUDIO = 8000;             // Cooldown entre alertas acústicas (8 seg)
 
 // Punto de entrada de la aplicación
 async function inicializar() {
@@ -50,23 +52,29 @@ async function inicializarAnaliticaAudio() {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const fuente = audioCtx.createMediaStreamSource(streamAudio);
         analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 512; // Resolución de frecuencias
+        analyser.fftSize = 512; // Resolución de frecuencias idónea para análisis en tiempo real
         fuente.connect(analyser);
 
-        // Grabador continuo para los clips de evidencia (Buffer de memoria circular)
-        mediaRecorder = new MediaRecorder(streamAudio, { mimeType: 'audio/webm' });
+        // Intentar usar un codec ampliamente compatible para grabación en navegadores móviles
+        let opcionesCodec = { mimeType: 'audio/webm;codecs=opus' };
+        if (!MediaRecorder.isTypeSupported(opcionesCodec.mimeType)) {
+            opcionesCodec = { mimeType: 'audio/webm' };
+        }
+
+        // Grabador continuo para los clips de evidencia
+        mediaRecorder = new MediaRecorder(streamAudio, opcionesCodec);
         
         mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) {
+            if (e.data && e.data.size > 0) {
                 bufferCircularAudio.push(e.data);
-                // Mantener solo los últimos ~6 segundos de audio en memoria (6 fragmentos de 1s)
-                if (bufferCircularAudio.length > 6) {
-                    bufferCircularAudio.shift();
+                // Mantenemos aproximadamente los últimos 8-10 fragmentos de 1 segundo
+                if (bufferCircularAudio.length > 8) {
+                    bufferCircularAudio.shift(); 
                 }
             }
         };
 
-        // Solicitar fragmentos de audio cada 1 segundo
+        // Solicitar fragmentos de audio constantes cada 1 segundo para mantener el buffer actualizado
         setInterval(() => {
             if (mediaRecorder.state === "recording") {
                 mediaRecorder.requestData();
@@ -81,7 +89,7 @@ async function inicializarAnaliticaAudio() {
     }
 }
 
-// Algoritmo de reconocimiento de Huellas Dactilares Acústicas
+// Algoritmo de reconocimiento de firmas acústicas optimizado anti-falsos positivos
 function procesarEspectroSonoro() {
     if (!analyser) return;
 
@@ -95,48 +103,56 @@ function procesarEspectroSonoro() {
         analyser.getByteFrequencyData(datosFrecuencia);
         const tiempoActual = Date.now();
 
-        // Dividimos el espectro en sub-bandas analíticas
-        let graves = 0;  // 0 a 80 Hz aprox (Maza, golpes estructurales)
-        let medios = 0;  // 200 a 1000 Hz aprox (Taladros, rotomartillos)
-        let agudos = 0;  // 2000 a 4000 Hz aprox (Amoladoras, sierras, chillidos)
+        // Inicializar acumuladores de energía por bandas de interés
+        let graves = 0;  // subsónicos de golpes de maza
+        let medios = 0;  // rango de la voz humana y taladros
+        let agudos = 0;  // amoladoras, sierras y chillidos
 
         for (let i = 0; i < bufferLongitud; i++) {
-            if (i < 5) graves += datosFrecuencia[i];
-            else if (i >= 5 && i < 40) medios += datosFrecuencia[i];
-            else if (i >= 40) agudos += datosFrecuencia[i];
-        }
-
-        // 1. Detección de Impacto Estructural (Maza / Boquete)
-        // Busca un pico de energía brutal y repentino en los graves profundos
-        if (graves > 850 && tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) {
-            tiempoUltimaAlertaAcustica = tiempoActual;
-            registrarEventoAcustico("GOLPES CONTINUOS / INTENTO DE BOQUETE");
-        }
-
-        // 2. Detección de Herramienta de Percusión (Taladro / Rotomartillo)
-        // Busca energía media sostenida de alta intensidad
-        if (medios > 3200) {
-            contadorTaladro++;
-            if (contadorTaladro > 75 && tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) { // ~1.5 segundos sostenido
-                tiempoUltimaAlertaAcustica = tiempoActual;
-                registrarEventoAcustico("HERRAMIENTA DE PERCUSIÓN (TALADRO/ROTOMARTILLO)");
-                contadorTaladro = 0;
+            if (i < 5) {
+                graves += datosFrecuencia[i];
+            } else if (i >= 5 && i < 35) {
+                medios += datosFrecuencia[i];
+            } else if (i >= 35) {
+                agudos += datosFrecuencia[i];
             }
-        } else {
-            contadorTaladro = Math.max(0, contadorTaladro - 1);
         }
 
-        // 3. Detección de Herramienta Rotativa (Amoladora / Sierra)
-        // Busca frecuencias agudas extremas y constantes
-        if (agudos > 1500) {
+        // --- DETECTOR DE IMPACTO SECO (MAZA/GOLPES DE BOQUETE) ---
+        let deltaGraves = graves - gravesPrevios;
+        gravesPrevios = graves;
+
+        if (deltaGraves > 380 && graves > 550 && medios < 1500) {
+            if (tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) {
+                tiempoUltimaAlertaAcustica = tiempoActual;
+                registrarEventoAcustico("GOLPES CONTINUOS / INTENTO DE BOQUETE");
+            }
+        }
+
+        // --- DETECTOR DE HERRAMIENTA ROTATIVA (AMOLADORA) ---
+        let ratioAmoladora = agudos / (medios + 1);
+
+        if (agudos > 1200 && ratioAmoladora > 0.8) {
             contadorAmoladora++;
-            if (contadorAmoladora > 75 && tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) {
+            if (contadorAmoladora > 50 && tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) {
                 tiempoUltimaAlertaAcustica = tiempoActual;
                 registrarEventoAcustico("HERRAMIENTA ROTATIVA DE CORTE (AMOLADORA)");
                 contadorAmoladora = 0;
             }
         } else {
             contadorAmoladora = Math.max(0, contadorAmoladora - 1);
+        }
+
+        // --- DETECTOR DE HERRAMIENTA DE PERCUSIÓN (TALADRO) ---
+        if (medios > 2800 && agudos < 1000) {
+            contadorTaladro++;
+            if (contadorTaladro > 50 && tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) {
+                tiempoUltimaAlertaAcustica = tiempoActual;
+                registrarEventoAcustico("HERRAMIENTA DE PERCUSIÓN (TALADRO/ROTOMARTILLO)");
+                contadorTaladro = 0;
+            }
+        } else {
+            contadorTaladro = Math.max(0, contadorTaladro - 1);
         }
 
         requestAnimationFrame(bucleAudio);
@@ -215,7 +231,6 @@ function registrarEventoInterno(objetoIA) {
     const ctxFoto = canvasFoto.getContext('2d');
 
     if (modoInfrarrojoActivo) {
-        // Nueva configuración de amplificación de luz residual (Más brillo, menos contraste)
         ctxFoto.filter = 'grayscale(100%) brightness(280%) contrast(80%)';
     } else {
         ctxFoto.filter = 'none';
@@ -237,36 +252,48 @@ function registrarEventoInterno(objetoIA) {
     cajaEventos.insertBefore(tarjeta, cajaEventos.firstChild);
 }
 
-// REGISTRO 2: NUEVO - Crea las tarjetas acústicas con reproductor de audio integrado
+// REGISTRO 2: Crea las tarjetas acústicas con el nuevo formato y carga de audio garantizada
 function registrarEventoAcustico(herramientaDetectada) {
     const hora = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     
-    // Consolidar los fragmentos de memoria circular para generar el clip de audio físico
-    const audioBlob = new Blob(bufferCircularAudio, { type: 'audio/webm' });
+    // CORRECCIÓN CLAVE: Hacemos una copia exacta y limpia del buffer circular actual
+    const chunksCopia = [...bufferCircularAudio];
+    
+    // Validamos que haya datos reales antes de armar el reproductor
+    if (chunksCopia.length === 0) return;
+
+    const audioBlob = new Blob(chunksCopia, { type: 'audio/webm;codecs=opus' });
     const audioUrl = URL.createObjectURL(audioBlob);
 
     const tarjeta = document.createElement('div');
     tarjeta.className = 'registro-card';
-    // Estilo en línea táctico para diferenciarlo visualmente (Borde naranja de advertencia crítica acústica)
-    tarjeta.style.borderLeft = "4px solid #f97316"; 
+    tarjeta.style.borderLeft = "4px solid #f97316"; // Borde táctico naranja
     
     tarjeta.innerHTML = `
         <div style="font-size: 1.8rem; display: flex; align-items: center; justify-content: center; background: rgba(249, 115, 22, 0.1); border-radius: 6px; padding: 10px; min-width: 80px; height: 80px; border: 1px solid rgba(249, 115, 22, 0.2);">
             🔊
         </div>
         <div class="registro-info" style="width: 100%;">
-            <div class="alerta-texto" style="color: #f97316;">🚨 AMENAZA ACÚSTICA CRÍTICA</div>
+            <div class="alerta-texto" style="color: #f97316;">🚨 AMENAZA ACÚSTICA DETECTADA</div>
             <div class="meta-line">Origen: <span>Micrófono de Cabina</span></div>
             <div class="meta-line">Evento: <span style="color: #f97316;">Posible sonido compatible con ${herramientaDetectada}</span></div>
             <div class="meta-line">Registro: <span>${hora} hs</span></div>
             
-            <audio controls style="width: 100%; height: 28px; margin-top: 6px; outline: none;">
+            <audio controls preload="auto" style="width: 100%; height: 28px; margin-top: 6px; outline: none;">
                 <source src="${audioUrl}" type="audio/webm">
                 Tu navegador no soporta reproducción de audio.
             </audio>
         </div>
     `;
+
+    // Insertar la tarjeta en la interfaz
     cajaEventos.insertBefore(tarjeta, cajaEventos.firstChild);
+
+    // CORRECCIÓN ADICIONAL: Forzar al elemento HTML5 a inicializar y leer el búfer cargado
+    const reproductorInstanciado = tarjeta.querySelector('audio');
+    if (reproductorInstanciado) {
+        reproductorInstanciado.load();
+    }
 }
 
 // Arrancar la app automáticamente al cargar la ventana
