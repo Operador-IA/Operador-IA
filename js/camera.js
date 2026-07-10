@@ -3,12 +3,22 @@ const canvas = document.getElementById('canvas');
 const visorModal = document.getElementById('visor-modal');
 const imgGrande = document.getElementById('img-grande');
 
-// Enciende la cámara trasera (o fallback)
+// CORRECCIÓN: Enciende la cámara trasera y fuerza la solicitud del micrófono simultáneamente
 async function encenderCamara() {
-    const opciones = { video: { facingMode: "environment" }, audio: false };
+    // Configuración base con audio habilitado obligatoriamente
+    const opciones = { 
+        video: { facingMode: "environment" }, 
+        audio: true // MODIFICACIÓN: Habilita el micrófono en el fallback
+    };
+    
     try {
-        video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } }, audio: false });
+        // Intenta arrancar con la cámara trasera principal exacta del celular y el micrófono
+        video.srcObject = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: { exact: "environment" } }, 
+            audio: true // MODIFICACIÓN: Habilita el micrófono en la solicitud principal
+        });
     } catch {
+        // Si falla (por ejemplo, en una PC sin cámara trasera), usa la cámara por defecto y el micrófono
         video.srcObject = await navigator.mediaDevices.getUserMedia(opciones);
     }
     
@@ -32,7 +42,6 @@ function abrirVisor(url) {
     visorModal.style.display = 'flex';
 }
 
-// Corrección: añadida la llave de cierre que faltaba en tu archivo inicial
 function cerrarVisor() {
     visorModal.style.display = 'none';
     imgGrande.src = '';
