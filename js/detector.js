@@ -4,9 +4,17 @@ const cajaEventos = document.getElementById('caja-eventos');
 const ctx = canvas.getContext('2d');
 const videoElement = document.getElementById('webcam');
 
+// Nuevos botones de silenciar
+const btnSilenciarOptico = document.getElementById('btn-silenciar-optico');
+const btnSilenciarAcustico = document.getElementById('btn-silenciar-acustico');
+
 let model = null;
 let registrosPersonas = [];
 let modoInfrarrojoActivo = false;
+
+// Variables de estado para los silenciadores (inician activos por defecto)
+let detectorOpticoActivo = true;
+let detectorAcusticoActivo = true;
 
 // Variables globales para la Analítica de Audio y Grabación
 let audioCtx = null;
@@ -29,6 +37,9 @@ async function inicializar() {
     await encenderCamara();
     window.addEventListener('resize', ajustarDimensionesCanvas);
     
+    // Configurar controladores de eventos para los nuevos botones de silenciar
+    configurarBotonesSilencio();
+    
     // Carga paralela de modelos
     bannerEstado.innerText = "Inicializando sensores ópticos y acústicos de seguridad...";
     model = await cocoSsd.load();
@@ -41,6 +52,37 @@ async function inicializar() {
     bannerEstado.innerText = "Filtro horario activo: Analizando salón cerrado y espectro acústico.";
     
     analizarVideo();
+}
+
+// Configuración visual y funcional de los silenciadores
+function configurarBotonesSilencio() {
+    if (btnSilenciarOptico) {
+        btnSilenciarOptico.addEventListener('click', () => {
+            detectorOpticoActivo = !detectorOpticoActivo;
+            if (detectorOpticoActivo) {
+                btnSilenciarOptico.style.background = "#22c55e";
+                btnSilenciarOptico.innerText = "🟢 DETECTOR VISUAL ACTIVO";
+            } else {
+                btnSilenciarOptico.style.background = "#64748b";
+                btnSilenciarOptico.innerText = "🔇 DETECTOR VISUAL SILENCIADO";
+                // Limpiar el canvas inmediatamente para quitar recuadros viejos
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        });
+    }
+
+    if (btnSilenciarAcustico) {
+        btnSilenciarAcustico.addEventListener('click', () => {
+            detectorAcusticoActivo = !detectorAcusticoActivo;
+            if (detectorAcusticoActivo) {
+                btnSilenciarAcustico.style.background = "#f97316";
+                btnSilenciarAcustico.innerText = "🟢 DETECTOR ACÚSTICO ACTIVO";
+            } else {
+                btnSilenciarAcustico.style.background = "#64748b";
+                btnSilenciarAcustico.innerText = "🔇 DETECTOR ACÚSTICO SILENCIADO";
+            }
+        });
+    }
 }
 
 // Inicialización del Micrófono y Analizador de Espectrogramas
@@ -118,41 +160,51 @@ function procesarEspectroSonoro() {
             }
         }
 
-        // --- DETECTOR DE IMPACTO SECO (MAZA/GOLPES DE BOQUETE) ---
-        let deltaGraves = graves - gravesPrevios;
-        gravesPrevios = graves;
+        // --- OPTIMIZACIÓN SILENCIO: Ignorar lógica de análisis si el detector acústico está apagado ---
+        if (detectorAcusticoActivo) {
+            
+            // 1. DETECTOR DE IMPACTO SECO (MAZA/GOLPES DE BOQUETE)
+            let deltaGraves = graves - gravesPrevios;
+            gravesPrevios = graves;
 
-        if (deltaGraves > 380 && graves > 550 && medios < 1500) {
-            if (tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) {
-                tiempoUltimaAlertaAcustica = tiempoActual;
-                registrarEventoAcustico("GOLPES CONTINUOS / INTENTO DE BOQUETE");
+            if (deltaGraves > 380 && graves > 550 && medios < 1500) {
+                if (tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) {
+                    tiempoUltimaAlertaAcustica = tiempoActual;
+                    registrarEventoAcustico("GOLPES CONTINUOS / INTENTO DE BOQUETE");
+                }
             }
-        }
 
-        // --- DETECTOR DE HERRAMIENTA ROTATIVA (AMOLADORA) ---
-        let ratioAmoladora = agudos / (medios + 1);
+            // 2. DETECTOR DE HERRAMIENTA ROTATIVA (AMOLADORA)
+            let ratioAmoladora = agudos / (medios + 1);
 
-        if (agudos > 1200 && ratioAmoladora > 0.8) {
-            contadorAmoladora++;
-            if (contadorAmoladora > 50 && tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) {
-                tiempoUltimaAlertaAcustica = tiempoActual;
-                registrarEventoAcustico("HERRAMIENTA ROTATIVA DE CORTE (AMOLADORA)");
-                contadorAmoladora = 0;
+            if (agudos > 1200 && ratioAmoladora > 0.8) {
+                contadorAmoladora++;
+                if (contadorAmoladora > 50 && tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) {
+                    tiempoUltimaAlertaAcustica = tiempoActual;
+                    registrarEventoAcustico("HERRAMIENTA ROTATIVA DE CORTE (AMOLADORA)");
+                    contadorAmoladora = 0;
+                }
+            } else {
+                contadorAmoladora = Math.max(0, contadorAmoladora - 1);
             }
+
+            // 3. DETECTOR DE HERRAMIENTA DE PERCUSIÓN (TALADRO)
+            if (medios > 2800 && agudos < 1000) {
+                contadorTaladro++;
+                if (contadorTaladro > 50 && tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) {
+                    tiempoUltimaAlertaAcustica = tiempoActual;
+                    registrarEventoAcustico("HERRAMIENTA DE PERCUSIÓN (TALADRO/ROTOMARTILLO)");
+                    contadorTaladro = 0;
+                }
+            } else {
+                contadorTaladro = Math.max(0, contadorTaladro - 1);
+            }
+
         } else {
-            contadorAmoladora = Math.max(0, contadorAmoladora - 1);
-        }
-
-        // --- DETECTOR DE HERRAMIENTA DE PERCUSIÓN (TALADRO) ---
-        if (medios > 2800 && agudos < 1000) {
-            contadorTaladro++;
-            if (contadorTaladro > 50 && tiempoActual - tiempoUltimaAlertaAcustica > INTERVALO_ALERTA_AUDIO) {
-                tiempoUltimaAlertaAcustica = tiempoActual;
-                registrarEventoAcustico("HERRAMIENTA DE PERCUSIÓN (TALADRO/ROTOMARTILLO)");
-                contadorTaladro = 0;
-            }
-        } else {
-            contadorTaladro = Math.max(0, contadorTaladro - 1);
+            // Aseguramos mantener actualizado el estado previo de graves aunque esté silenciado
+            gravesPrevios = graves;
+            contadorAmoladora = 0;
+            contadorTaladro = 0;
         }
 
         requestAnimationFrame(bucleAudio);
@@ -180,6 +232,12 @@ function alternarInfrarrojo() {
 // Bucle de inferencia visual y tracking continuo
 async function analizarVideo() {
     if (!model) return;
+
+    // --- OPTIMIZACIÓN SILENCIO: Saltarse el análisis del frame si el óptico está desactivado ---
+    if (!detectorOpticoActivo) {
+        requestAnimationFrame(analizarVideo);
+        return;
+    }
 
     const predicciones = await model.detect(videoElement);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -256,7 +314,7 @@ function registrarEventoInterno(objetoIA) {
 function registrarEventoAcustico(herramientaDetectada) {
     const hora = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     
-    // CORRECCIÓN CLAVE: Hacemos una copia exacta y limpia del buffer circular actual
+    // Hacemos una copia exacta y limpia del buffer circular actual
     const chunksCopia = [...bufferCircularAudio];
     
     // Validamos que haya datos reales antes de armar el reproductor
@@ -289,7 +347,7 @@ function registrarEventoAcustico(herramientaDetectada) {
     // Insertar la tarjeta en la interfaz
     cajaEventos.insertBefore(tarjeta, cajaEventos.firstChild);
 
-    // CORRECCIÓN ADICIONAL: Forzar al elemento HTML5 a inicializar y leer el búfer cargado
+    // Forzar al elemento HTML5 a inicializar y leer el búfer cargado
     const reproductorInstanciado = tarjeta.querySelector('audio');
     if (reproductorInstanciado) {
         reproductorInstanciado.load();
