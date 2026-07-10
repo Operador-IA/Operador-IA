@@ -26,6 +26,13 @@ let tiempoUltimaAlertaAcustica = 0;
 // Historial dinámico para el detector de transitorios (Impactos rápidos)
 let gravesPrevios = 0;
 
+// ==========================================
+// NUEVAS VARIABLES PARA FILTRADO DE FALSOS POSITIVOS
+// ==========================================
+let historialCajas = {}; // Almacena el estado y movimiento de cada ID de tracking
+const CONTEXTO_FOTOGRAMAS_MINIMO = 8;  // Cuántos frames seguidos debe verse para confirmar que es humano
+const UMBRAL_MOVIMIENTO_CAJA = 2.5;    // Cuánto debe variar la caja (píxeles) para descartar objetos rígidos estáticos (camperas/toallas)
+
 // Constantes de calibración del sistema
 const TIEMPO_ESPERA_REPETICION = 2 * 60 * 1000;  // 2 minutos entre logs del mismo intruso
 const TOLERANCIA_PIXELES = 120;                  // Rango de tracking de movimiento
@@ -229,11 +236,10 @@ function alternarInfrarrojo() {
     }
 }
 
-// Bucle de inferencia visual y tracking continuo
+// Bucle de inferencia visual y tracking continuo optimizado
 async function analizarVideo() {
     if (!model) return;
 
-    // --- OPTIMIZACIÓN SILENCIO: Saltarse el análisis del frame si el óptico está desactivado ---
     if (!detectorOpticoActivo) {
         requestAnimationFrame(analizarVideo);
         return;
@@ -243,37 +249,96 @@ async function analizarVideo() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const tiempoActual = Date.now();
 
+    // IDs activos en este fotograma para saber cuáles limpiar al final
+    let idsVistosEsteFrame = new Set();
+
     predicciones.forEach(objeto => {
-        if (objeto.class === 'person' && objeto.score > 0.65) {
+        // Subimos sutilmente el umbral base a 0.70 para mayor solidez
+        if (objeto.class === 'person' && objeto.score > 0.70) {
             const [x, y, ancho, alto] = objeto.bbox;
 
-            ctx.strokeStyle = "#22c55e";
-            ctx.lineWidth = 3;
-            ctx.strokeRect(x, y, ancho, alto);
-
+            let idAsignado = null;
             let esMismaPersona = false;
 
+            // 1. ASIGNACIÓN DE ID POR PROXIMIDAD (TRACKING)
             for (let i = 0; i < registrosPersonas.length; i++) {
                 let r = registrosPersonas[i];
                 if (Math.abs(r.x - x) < TOLERANCIA_PIXELES && Math.abs(r.y - y) < TOLERANCIA_PIXELES) {
                     esMismaPersona = true;
                     r.x = x; 
                     r.y = y;
-
-                    if (tiempoActual - r.ultimoRegistro > TIEMPO_ESPERA_REPETICION) {
-                        r.ultimoRegistro = tiempoActual;
-                        registrarEventoInterno(objeto);
-                    }
+                    idAsignado = i; // Usamos el índice como ID único persistente
                     break;
                 }
             }
 
             if (!esMismaPersona) {
                 registrosPersonas.push({ x, y, ultimoRegistro: tiempoActual });
-                registrarEventoInterno(objeto);
+                idAsignado = registrosPersonas.length - 1;
+            }
+
+            idsVistosEsteFrame.add(idAsignado);
+
+            // 2. INICIALIZAR O ACTUALIZAR EL HISTORIAL DE PERSISTENCIA Y ANÁLISIS SÍSMICO/MOVIMIENTO
+            if (!historialCajas[idAsignado]) {
+                historialCajas[idAsignado] = {
+                    contadorFrames: 1,
+                    ultimoX: x,
+                    ultimoY: y,
+                    acumuladorMovimiento: 0,
+                    alertaConfirmada: false
+                };
+            } else {
+                let datosCaja = historialCajas[idAsignado];
+                datosCaja.contadorFrames++;
+
+                // Calcular micro-variaciones matemáticas de la caja delimitadora (Simula respiración/movimiento)
+                let variacionX = Math.abs(datosCaja.ultimoX - x);
+                let variacionY = Math.abs(datosCaja.ultimoY - y);
+                datosCaja.acumuladorMovimiento += (variacionX + variacionY);
+
+                // Actualizar coordenadas previas para el siguiente frame
+                datosCaja.ultimoX = x;
+                datosCaja.ultimoY = y;
+            }
+
+            let analisisCaja = historialCajas[idAsignado];
+
+            // 3. VALIDACIÓN CRÍTICA: ¿Es un humano móvil o un objeto estático?
+            // Exigimos que aparezca X frames seguidos Y que tenga micro-movimientos (ruido analógico)
+            if (analisisCaja.contadorFrames >= CONTEXTO_FOTOGRAMAS_MINIMO) {
+                
+                // Si está quieto matemáticamente (como una toalla), el acumulador de variaciones será bajísimo
+                if (analisisCaja.acumuladorMovimiento > UMBRAL_MOVIMIENTO_CAJA) {
+                    
+                    // Renderizar recuadro visual solo si pasó los filtros rigurosos
+                    ctx.strokeStyle = "#22c55e"; // Verde clásico de alerta activa
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x, y, ancho, alto);
+
+                    // Gestión de envío de alertas controlada por tiempo
+                    let r = registrosPersonas[idAsignado];
+                    if (!analisisCaja.alertaConfirmada || (tiempoActual - r.ultimoRegistro > TIEMPO_ESPERA_REPETICION)) {
+                        r.ultimoRegistro = tiempoActual;
+                        analisisCaja.alertaConfirmada = true;
+                        registrarEventoInterno(objeto);
+                    }
+                } else {
+                    // Renderizado secundario (Opcional/Debug): Dibujar cuadro amarillo tenue indicando objeto en análisis
+                    ctx.strokeStyle = "rgba(234, 179, 8, 0.4)";
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, ancho, alto);
+                }
             }
         }
     });
+
+    // Limpieza de memoria del historial de cajas de objetos que desaparecieron
+    for (let id in historialCajas) {
+        if (!idsVistosEsteFrame.has(parseInt(id))) {
+            delete historialCajas[id];
+        }
+    }
 
     registrosPersonas = registrosPersonas.filter(r => tiempoActual - r.ultimoRegistro < TIEMPO_EXPIRACION_TRACKING);
     requestAnimationFrame(analizarVideo);
